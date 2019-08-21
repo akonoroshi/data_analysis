@@ -42,12 +42,30 @@ def ttest(data: pd.DataFrame, X: list, y: str, problem: str, equal_var=False) ->
         if x == 'research': # research is a dummy variable of factor motivate
             continue
         elif problem not in ['W10_insert', 'W10_bubble', 'W11_prepare'] and x == 'motivate':
-            # motivate has three levels so do one-way ANOVA
-            result = stats.f_oneway(
-                data[data[x] == 0][y], data[data[x] == 1][y], data[data['research'] == 1][y])
-        else: # other factors have only two levels, hence t-test
-            result = stats.ttest_ind(
-                data[data[x] == 0][y], data[data[x] == 1][y], equal_var = equal_var)
+            # motivate has three levels
+            # test normality
+            if stats.normaltest(data[(data[x] == 0) & (data['research'] == 0)][y])[
+                1] > 0.05 and stats.normaltest(data[data[x] == 1][y])[1] > 0.05 and stats.normaltest(
+                    data[data['research'] == 1][y])[1] > 0.05:
+                # normally distributed, so oneway anova
+                result = stats.f_oneway(data[(data[x] == 0) & (data['research'] == 0)][
+                    y], data[data[x] == 1][y], data[data['research'] == 1][y])
+            else:
+                # not normally distributed, so Kruskal-Wallis test
+                result = stats.kruskal(data[(data[x] == 0) & (data['research'] == 0)][
+                    y], data[data[x] == 1][y], data[data['research'] == 1][y])
+        else: # other factors have only two levels
+            # test normality
+            if stats.normaltest(data[data[x] == 0][y])[1] > 0.05 and stats.normaltest(
+                data[data[x] == 1][y])[1] > 0.05: 
+                # normally distributed, so t-test
+                result = stats.ttest_ind(data[data[x] == 0][y], data[
+                    data[x] == 1][y], equal_var = stats.bartlett(
+                        data[data[x] == 0][y], data[data[x] == 1][y])[1] > 0.05)
+            else:
+                # not normally distributed, so Mann-Whitney U-test
+                result = stats.mannwhitneyu(data[data[x] == 0][y], data[
+                    data[x] == 1][y], alternative='two-sided')
             
         p = p_to_string(result[1])
         result_dict[x] = str(round(result[0], 2)) + ' ' + p
@@ -113,7 +131,8 @@ def test_to_tex(data: pd.DataFrame, data_dict: dict, X: str, y: str, file_loc: s
     df = pd.DataFrame()
     if test == 'ttest':
         for name, prob in data_dict.items():
-            df = df.append(ttest(prob, X, y, name), ignore_index=True)
+            relevant_X = preprocess.select_X(X, name)
+            df = df.append(ttest(prob, relevant_X, y, name), ignore_index=True)
         df = df.append(ttest(data, X, y, 'Overall'), ignore_index=True)
     else:
         for name, prob in data_dict.items():
