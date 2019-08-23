@@ -111,12 +111,16 @@ for name, prob in data_dict.items():
             continue
         elif name not in old_exp and x in non_bin[:,0]:
             # more than two levels
-            print('motivate: {0} received "stop" ({1} completed) vs {2} received "research" ({3} completed) vs {4} received none ({5} completed)'.format(
-                len(prob[prob[x] == 1]), len(prob[(prob[x] == 1) & (prob['Finished'] == 1)]), len(
-                    prob[prob['research'] == 1]), len(prob[(prob['research'] == 1) & (
-                        prob['Finished'] == 1)]), len(prob[(prob[x] == 0) & (
-                            prob['research'] == 0)]), len(prob[(prob[x] == 0) & (
-                                prob['research'] == 0) & (prob['Finished'] == 1)])))
+            message = x + ': '
+            factor = np.where(non_bin[:,0] == x)[0][0]
+            base_data = prob
+            for level in non_bin[factor]:
+                message += '{0} received "{1}" ({2} completed) vs '.format(len(prob[prob[
+                    level] == 1]), level, len(prob[(prob[level] == 1) & (prob['Finished'] == 1)]))
+                base_data = base_data[base_data[level] == 0]
+            message += '{0} received none ({1} completed)'.format(len(base_data), len(base_data[
+                base_data['Finished'] == 1]))
+            print(message)
         else:
             print('{0}: {1} assigned ({2} completed) vs {3} not assigned ({4} completed)'.format(
                 x, len(prob[prob[x] == 1]), len(prob[(prob[x] == 1) & (
