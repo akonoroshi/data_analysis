@@ -24,105 +24,118 @@ data_list = [data_op, data_gr, data_11, data_12_pre, data_12_pfm]
 data_names = ['W10_insert', 'W10_bubble', 'W11_prepare', 'W12_prepare', 'W12_perform']
 data_dict = dict(zip(data_names, data_list))
 
-X = ['motivate', 'metacognitive', 'friend', 'big', 'question', 'instructor', 
-    'sentence', 'research', 'how']
-X_extended = ['motivate', 'metacognitive', 'friend', 'big', 'question', 'instructor', 
-    'sentence', 'research', 'how', 'W10_bubble', 'W11_prepare', 'W12_prepare']
+# Precondition: the length of factors and the number of rows of levels
+factors = np.array(['motivate', 'metacognitive', 'friend', 'big', 'question', 'instructor', 
+    'sentence', 'how'])
+# First levels are reference
+# Must have at least two levels for each factor
+levels = np.array([['no', 'stop', 'research'], ['no', 'yes'], ['no', 'yes'], ['no', 'yes'], [
+    'no', 'yes'], ['no', 'yes'], ['no', 'yes'], ['no', 'yes']])
 old_exp = ['W10_insert', 'W10_bubble', 'W11_prepare']
-non_bin = np.array([['motivate', 'research']])
 
 #%% [markdown]
-# # Statistical Significance
-
-#%%
-# Self-reported helpfulness
-plot.explore(data, data_dict, X, 'expl_helpfulness', 
-    'Self-reported helpfulness', max_plot_val=7, old_exp=old_exp, non_bin=non_bin)
-#%%
-stats_test.analyze(data, data_dict, X, 'expl_helpfulness', 'ttest', './', 
-    old_exp=old_exp, non_bin=non_bin)
-
-#%%
-# Correct rate on a related problem
-plot.explore(data, data_dict, X, 'correct_rate', 'Correct rate on related problem')
-
-#%%
-stats_test.analyze(data, data_dict, X, 'correct_rate', 'ttest', './', 
-    old_exp=old_exp, non_bin=non_bin)
-
-#%% 
-# Time spent on answering the survey 
-plot.explore(data, data_dict, X, 'Duration', 'Duration', max_plot_val=500, 
-    boxplot=True, old_exp=old_exp, non_bin=non_bin)
-
-#%%
-# TODO should I exclude outliers?
-#threshold = data['Duration'].quantile(0.75) * 2
-#filtered = data[data['Duration'] < threshold]
-#filtered_dict = preprocess.filter_dict(data_dict, 'Duration', threshold)
-#stats_test.analyze(filtered, filtered_dict, X, 'Duration', 'Duration', 'ttest', './')
-stats_test.analyze(data, data_dict, X, 'Duration', 'Duration', 'ttest', './', 
-    old_exp=old_exp, non_bin=non_bin)
-
-#%% 
-# Quality (length) of explanation
-threshold = 1
-filtered = data[data['explanation_length'] > threshold]
-filtered_dict = preprocess.filter_dict(data_dict, 'explanation_length', threshold, smaller=False)
-plot.explore(filtered, filtered_dict, X, 'explanation_length', 'Length of explanations', 
-    max_plot_val=400, boxplot=True, old_exp=old_exp, non_bin=non_bin)
-
-#%%
-# TODO should I exclude outliers?
-#threshold = data['explanation_length'].quantile(0.75) * 2
-#filtered = data[data['explanation_length'] < threshold]
-#filtered_dict = preprocess.filter_dict(data_dict, 'explanation_length', threshold)
-stats_test.analyze(filtered, filtered_dict, X, 'explanation_length', 'ttest', './', 
-    old_exp=old_exp, non_bin=non_bin)
-#stats_test.analyze(data, data_dict, X, 'explanation_length', 'ttest', './', old_exp=old_exp, non_bin=non_bin)
-
-#%% 
-# Proportion of people who wrote explanations
-plot.explore(data, data_dict, X, 'has_explanation', 'Has explanation', 
-    max_plot_val=0.5, old_exp=old_exp, non_bin=non_bin)
-
-#%%
-stats_test.analyze(data, data_dict, X, 'has_explanation', 'ztest', './', log=False, 
-    old_exp=old_exp, non_bin=non_bin)
-
-#%%
-# Proportion of people who completed the survey
-plot.explore(data, data_dict, X, 'Finished', 'Completion rate', max_plot_val=0.6, 
-    old_exp=old_exp, non_bin=non_bin)
-
-#%%
-stats_test.analyze(data, data_dict, X, 'Finished', 'ztest', './', 
-    old_exp=old_exp, non_bin=non_bin)
+# # Number of completed and partial responses
 
 #%%
 # Print the number of students assigned to each condition and 
 # the number of students who completed the survey
 for name, prob in data_dict.items():
     print(name.replace('_', ' ').title())
-    relevant_X = preprocess.select_X(X, name)
-    for x in relevant_X:
-        if x in np.delete(non_bin, 0, axis=1): 
-            # dummy variable of another factor
-            continue
-        elif name not in old_exp and x in non_bin[:,0]:
-            # more than two levels
-            message = x + ': '
-            factor = np.where(non_bin[:,0] == x)[0][0]
+    indices = preprocess.select_factors(factors, name)
+    for i in indices:
+        message = factors[i] + ': '
+        if len(levels[i]) != 2 and name not in old_exp:
             base_data = prob
-            for level in non_bin[factor]:
+            for j in range(1, len(levels[i])):
                 message += '{0} received "{1}" ({2} completed) vs '.format(len(prob[prob[
-                    level] == 1]), level, len(prob[(prob[level] == 1) & (prob['Finished'] == 1)]))
-                base_data = base_data[base_data[level] == 0]
+                    factors[i] + '_' + levels[i][j]] == 1]), levels[i][j], len(prob[(prob[
+                        factors[i] + '_' + levels[i][j]] == 1) & (prob['Finished'] == 1)]))
+                base_data = base_data[base_data[factors[i] + '_' + levels[i][j]] == 0]
             message += '{0} received none ({1} completed)'.format(len(base_data), len(base_data[
                 base_data['Finished'] == 1]))
-            print(message)
         else:
-            print('{0}: {1} assigned ({2} completed) vs {3} not assigned ({4} completed)'.format(
-                x, len(prob[prob[x] == 1]), len(prob[(prob[x] == 1) & (
-                    prob['Finished'] == 1)]), len(prob[prob[x] == 0]), len(
-                        prob[(prob[x] == 0) & (prob['Finished'] == 1)])))
+            message += '{0} assigned ({1} completed) vs {2} not assigned ({3} completed)'.format(
+                len(prob[prob[factors[i] + '_' + levels[i][1]] == 1]), len(prob[(prob[
+                    factors[i] + '_' + levels[i][1]] == 1) & (prob['Finished'] == 1)]), len(prob[prob[
+                        factors[i] + '_' + levels[i][1]] == 0]), len(prob[(prob[factors[
+                            i] + '_' + levels[i][1]] == 0) & (prob['Finished'] == 1)]))
+        print(message)
+
+#%% [markdown]
+# # Statistical Analysis
+
+#%% [markdown]
+# ## Self-reported helpfulness
+
+#%%
+plot.explore(data, data_dict, factors, levels, 'expl_helpfulness', 
+    'Self-reported helpfulness', max_plot_val=4, old_exp=old_exp)
+#%%
+stats_test.analyze(data, data_dict, factors, levels, 'expl_helpfulness', 'ttest', './', 
+    old_exp=old_exp)
+
+#%% [markdown]
+# ## Correct rate on a related problem
+
+#%%
+plot.explore(data, data_dict, factors, levels, 'correct_rate', 
+    'Correct rate on related problem', old_exp=old_exp)
+
+#%%
+stats_test.analyze(data, data_dict, factors, levels, 'correct_rate', 'ttest', './', 
+    old_exp=old_exp)
+
+#%% [markdown]
+# ## Time spent on answering the survey 
+
+#%% 
+plot.explore(data, data_dict, factors, levels, 'Duration', 'Duration', 
+    max_plot_val=500, boxplot=True, old_exp=old_exp)
+
+#%%
+# TODO should I exclude outliers?
+#threshold = data['Duration'].quantile(0.75) * 2
+#filtered = data[data['Duration'] < threshold]
+#filtered_dict = preprocess.filter_dict(data_dict, 'Duration', threshold)
+#stats_test.analyze(filtered, filtered_dict, factors, levels, 'Duration', 'ttest', './', old_exp=old_exp)
+stats_test.analyze(data, data_dict, factors, levels, 'Duration', 'ttest', 
+    './', old_exp=old_exp)
+
+#%% [markdown]
+# ## Quality (length) of explanation
+#%% 
+# Remove students who didn't write any explanations
+threshold = 1
+filtered = data[data['explanation_length'] > threshold]
+filtered_dict = preprocess.filter_dict(data_dict, 'explanation_length', threshold, smaller=False)
+plot.explore(filtered, filtered_dict, factors, levels, 'explanation_length', 
+    'Length of explanations', max_plot_val=400, boxplot=True, old_exp=old_exp)
+
+#%%
+# TODO should I exclude outliers?
+#threshold = data['explanation_length'].quantile(0.75) * 2
+#filtered = data[data['explanation_length'] < threshold]
+#filtered_dict = preprocess.filter_dict(data_dict, 'explanation_length', threshold)
+stats_test.analyze(filtered, filtered_dict, factors, levels, 'explanation_length', 
+    'ttest', './', old_exp=old_exp)
+#stats_test.analyze(data, data_dict, factors, levels, 'explanation_length', 'ttest', './', old_exp=old_exp)
+
+#%% [markdown]
+# ## Proportion of people who wrote explanations
+#%% 
+plot.explore(data, data_dict, factors, levels, 'has_explanation', 'Has explanation', 
+    max_plot_val=0.5, old_exp=old_exp)
+
+#%%
+stats_test.analyze(data, data_dict, factors, levels, 'has_explanation', 'ztest', './', 
+    old_exp=old_exp, log=False)
+
+#%% [markdown]
+# ## Proportion of people who completed the survey
+#%%
+plot.explore(data, data_dict, factors, levels, 'Finished', 'Completion rate', max_plot_val=0.6, 
+    old_exp=old_exp)
+
+#%%
+stats_test.analyze(data, data_dict, factors, levels, 'Finished', 'ztest', './', 
+    old_exp=old_exp)

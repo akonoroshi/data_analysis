@@ -1,23 +1,28 @@
 import pandas as pd
+import numpy as np
 
-def select_X(X: list, name: str) -> list:
+def select_factors(factors: np.ndarray, name: str) -> list:
     '''
-    Return a list of independent variables relevant to an experiment specified by name.
+    Return indices of independent variables relevant to an experiment specified by name.
     Hard-coded.
     '''
     if name == 'W10_insert':
-        return ['motivate', 'metacognitive', 'friend']
+        return [0, 1, 2]
     elif name == 'W10_bubble':
-        return ['motivate', 'metacognitive', 'friend', 'big']
+        return [0, 1, 2, 3]
     elif name == 'W11_prepare':
-        return ['motivate', 'metacognitive', 'friend', 'big', 'question', 'instructor']
+        return [0, 1, 2, 3, 4, 5]
     elif name == 'W12_prepare':
-        return ['motivate', 'metacognitive', 'friend', 'big', 'question', 
-            'instructor', 'sentence', 'research']
+        return [0, 1, 2, 3, 4, 5, 6]
     elif name == 'W12_perform':
-        return ['motivate', 'metacognitive', 'friend', 'big', 'question', 
-            'sentence', 'research', 'how']
-    return X
+        return [0, 1, 2, 3, 4, 6, 7]
+    return list(range(len(factors)))
+
+def add_filter(data, data_col: str, new_col: str):
+    data[new_col] = 1
+    data.loc[data[data_col] == -99, new_col] = 0
+    data.loc[data[data_col].isna(), new_col] = 0
+    return data
 
 def filter_dict(data_dict: dict, y: str, threshold: int, smaller=True) -> dict:
     '''
@@ -31,3 +36,11 @@ def filter_dict(data_dict: dict, y: str, threshold: int, smaller=True) -> dict:
         else:
             filtered_dict[name] = data[data[y] > threshold]
     return filtered_dict
+
+
+def remove_personal_identifiers(data):
+    personal_info = ['IPAddress', 'LocationLatitude', 'LocationLongitude', 
+        'hashed_id', 'id', 'user_id', 'username']
+    for info in personal_info:
+        data[info] = ''
+    return data
