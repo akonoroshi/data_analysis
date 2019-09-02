@@ -33,6 +33,20 @@ levels = np.array([['no', 'stop', 'research'], ['no', 'yes'], ['no', 'yes'], ['n
     'no', 'yes'], ['no', 'yes'], ['no', 'yes'], ['no', 'yes']])
 old_exp = ['W10_insert', 'W10_bubble', 'W11_prepare']
 
+# Precondition: the length of contexts is the same as the number of rows of context_levels
+contexts = np.array(['passed'])
+# First column of context_levels is reference 
+# Must have at least two levels for each context
+context_levels = np.array([['no', 'yes']])
+
+#%%
+should_be_dropped = ['saw_prompts', 'earliest', 'is_student']
+can_be_dropped = ['read_prompts', 'filled_helpfulness', 'Finished', 'has_explanation']
+for column in should_be_dropped:
+    for name in data_dict.keys():
+        data_dict[name] = data_dict[name][data_dict[name][column] == 1]
+    data = data[data[column] == 1]
+
 #%% [markdown]
 # # Number of completed and partial responses
 
@@ -63,6 +77,47 @@ for name, prob in data_dict.items():
 
 #%% [markdown]
 # # Statistical Analysis
+
+#%%
+ys = ['has_explanation', 'explanation_length', 'expl_helpfulness', 'Duration']
+ylabels = ['Has explanation', 'Length of explanation', 'Self-reported helpfulness', 'Duration']
+max_plot_vals = [1.0, 120, 7, 500]
+boxplots = [False, False, False, True]
+
+#%% [markdown]
+# ## Week 10 Insert
+
+#%%
+plot.explore_by_factor(data_dict['W10_insert'], factors, levels, ys, ylabels, 
+    'W10_insert', can_be_dropped, max_plot_vals, boxplots, old_exp, contexts, context_levels)
+
+#%% [markdown]
+# ## Week 10 Bubble
+
+#%%
+plot.explore_by_factor(data_dict['W10_bubble'], factors, levels, ys, ylabels, 
+    'W10_bubble', can_be_dropped, max_plot_vals, boxplots, old_exp, contexts, context_levels)
+
+#%% [markdown]
+# ## Week 11 Prepare
+
+#%%
+plot.explore_by_factor(data_dict['W11_prepare'], factors, levels, ys, ylabels, 
+    'W11_prepare', can_be_dropped, max_plot_vals, boxplots, old_exp, contexts, context_levels)
+
+#%% [markdown]
+# ## Week 12 Prepare
+
+#%%
+plot.explore_by_factor(data_dict['W12_prepare'], factors, levels, ys, ylabels, 
+    'W12_prepare', can_be_dropped, max_plot_vals, boxplots, old_exp, contexts, context_levels)
+
+#%% [markdown]
+# ## Week 12 Perform
+
+#%%
+plot.explore_by_factor(data_dict['W12_perform'], factors, levels, ys, ylabels, 
+    'W12_perform', can_be_dropped, [1.0, 120, 7, 5000], boxplots, old_exp, contexts, context_levels)
 
 #%% [markdown]
 # ## Self-reported helpfulness

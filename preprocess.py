@@ -3,8 +3,16 @@ import numpy as np
 
 def select_factors(factors: np.ndarray, name: str) -> list:
     '''
-    Return indices of independent variables relevant to an experiment specified by name.
+    Returns indices of independent variables relevant to an experiment specified by name.
     Hard-coded.
+    Parameters
+    ----------
+    factors (numpy.ndarray): the list of the independent variables.
+    name (str): the version of the experiment.
+
+    Return
+    -------
+    (list): a list of indices of relevant independent variables
     '''
     if name == 'W10_insert':
         return [0, 1, 2]
@@ -18,16 +26,39 @@ def select_factors(factors: np.ndarray, name: str) -> list:
         return [0, 1, 2, 3, 4, 6, 7]
     return list(range(len(factors)))
 
-def add_filter(data, data_col: str, new_col: str):
+def add_filter(data: pd.DataFrame, data_col: str, new_col: str) -> pd.DataFrame:
+    '''
+    Add a column that indicates data is missing.
+    Parameters
+    ----------
+    data (pandas.DataFrame): df containing overall data of the experiments.
+    data_col (str): the column with possible missing values.
+    new_col (str): the name of new indicator column.
+
+    Return
+    -------
+    data (pandas.DataFrame): df containing overall data of the experiments 
+    with a new indicator column.
+    '''
     data[new_col] = 1
     data.loc[data[data_col] == -99, new_col] = 0
     data.loc[data[data_col].isna(), new_col] = 0
     return data
 
-def filter_dict(data_dict: dict, y: str, threshold: int, smaller=True) -> dict:
+def filter_dict(data_dict: dict, y: str, threshold, smaller=True) -> dict:
     '''
     Filters data in data_dict so that data have only y values smaller/larger than 
     the threshold.
+    data_dict (dict): the dictionary whose key is the names of experiments and 
+    value is data (pandas.DataFrame).
+    y (str): the name of the dependent variable.
+    threshold (int or float): threshold.
+    smaller (bool): True if you want to keep data smaller than threshold. Otherwise False.
+
+    Return
+    -------
+    filtered_dict (dict): a dictionary whose key is the names of experiments and 
+    value is data (pandas.DataFrame) after dropping some data according to threshold.
     '''
     filtered_dict = {}
     for name, data in data_dict.items():
@@ -38,9 +69,21 @@ def filter_dict(data_dict: dict, y: str, threshold: int, smaller=True) -> dict:
     return filtered_dict
 
 
-def remove_personal_identifiers(data):
-    personal_info = ['IPAddress', 'LocationLatitude', 'LocationLongitude', 
-        'hashed_id', 'id', 'user_id', 'username']
+def remove_personal_identifiers(data: pd.DataFrame) -> pd.DataFrame:
+    '''
+    Removes personal information from data. Hard-coded.
+    Parameters
+    ----------
+    data (pandas.DataFrame): df containing overall data of the experiments
+
+    Return
+    -------
+    data (pandas.DataFrame): df containing overall data of the experiments 
+    without personal infomation.
+    '''
+
+    personal_info = ['IPAddress', 'LocationLatitude_x', 'LocationLongitude_x', 
+        'id', 'user_id', 'username']
     for info in personal_info:
         data[info] = ''
     return data
