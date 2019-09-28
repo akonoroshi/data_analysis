@@ -6,6 +6,7 @@ from statsmodels.stats.proportion import proportions_chisquare
 import os
 import subprocess
 import statsmodels.api as sm
+from statsmodels.formula.api import glm
 from statsmodels.formula.api import ols
 from statsmodels.formula.api import logit
 from statsmodels.formula.api import probit
@@ -14,6 +15,10 @@ import preprocess
 
 pd.set_option('display.max_colwidth', 1000)
 
+def correlations(x, y):
+    print("Pearson's R: " + str(stats.pearsonr(x, y)))
+    print("Spearman's Rho: " + str(stats.spearmanr(x, y)))
+    
 def p_to_string(p: float) -> str:
     '''
     Generates a string saying the input p-value is less/greater than a critical value 
@@ -37,7 +42,8 @@ def p_to_string(p: float) -> str:
         returned = '$(p>0.1)$'
     elif p <= 1:
         returned = '$(p>0.5)$'
-    return returned
+    #return returned
+    return '$(p=' + str(np.round(p, 2)) + ')$'
 
 def non_normal(level_data: list):
     '''
@@ -232,7 +238,7 @@ def test_to_tex(data: pd.DataFrame, data_dict: dict, factors: np.ndarray,
     latex_to_pdf(df.to_latex(
         column_format='c'*(df.shape[1]+1), escape=False), test + '.tex', file_loc, y)
 
-def generate_formula(factors: np.ndarray, levels: np.ndarray, y:str, name: str, old_exp=[]) -> str:
+def generate_formula(factors: np.ndarray, levels: np.ndarray, y:str, name: str, old_exp=[], contexts=[], context_levels=[[]]) -> str:
     '''
     Returns the formula of regression from a list of independent variables and 
     a dependent variable.
@@ -255,23 +261,38 @@ def generate_formula(factors: np.ndarray, levels: np.ndarray, y:str, name: str, 
             formula += ' + ' + factor + '_' + factor_levels[i]
             if name in old_exp:
                 break
-    for c in itertools.combinations(range(len(factors)), 2): # Interaction effects
-        for i in range(1, len(levels[c[0]])):
-            for j in range(1, len(levels[c[1]])):
-                formula += ' + ' + factors[c[0]] + '_' + levels[c[0]][
-                    i] + ':' + factors[c[1]] + '_' + levels[c[1]][j]
+    for context, context_level in zip(contexts, context_levels):
+        for i in range(1, len(context_level)):
+            formula += ' + ' + context + '_' + context_level[i] 
+
+    if len(contexts) != 0:
+        for factor, factor_levels in zip(factors, levels):
+            for i in range(1, len(factor_levels)):
+                for context, context_level in zip(contexts, context_levels):
+                    for j in range(1, len(context_level)):
+                        formula += ' + ' + factor + '_' + factor_levels[
+                            i] + ':' + context + '_' + context_level[j]
                 if name in old_exp:
                     break
-            if name in old_exp:
-                break
+    else:
+        for c in itertools.combinations(range(len(factors)), 2): # Interaction effects
+            for i in range(1, len(levels[c[0]])):
+                for j in range(1, len(levels[c[1]])):
+                    formula += ' + ' + factors[c[0]] + '_' + levels[c[0]][
+                        i] + ':' + factors[c[1]] + '_' + levels[c[1]][j]
+                    if name in old_exp:
+                        break
+                if name in old_exp:
+                    break
 
     # instructor was removed and how was added in week 12 perform
     formula = formula.replace(' + instructor_yes:how_yes', '')
     formula = formula.replace(' + how_yes:instructor_yes', '')
+
     return formula
 
 def ols_anova(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str, 
-    file_loc: str, name: str, old_exp=[]):
+    file_loc: str, name: str, old_exp=[], contexts=[], context_levels=[[]]):
     '''
     Fits to OLS, conducts ANOVA, and generates latex strings of the results.
     Parameters
@@ -287,7 +308,7 @@ def ols_anova(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: st
     log (bool): if True, fit to logistic regression; otherwise probit regression.
     '''
     print(name)
-    formula = generate_formula(factors, levels, y, name, old_exp)
+    formula = generate_formula(factors, levels, y, name, old_exp, contexts, context_levels)
     lm_all = ols(formula, data=data).fit()
     print(lm_all.summary())
     table = sm.stats.anova_lm(lm_all, typ=2)
@@ -300,7 +321,7 @@ def ols_anova(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: st
                 r'\begin{tabular}{lclc}', 1)), name + '_ols.tex', file_loc, y)
 
 def discrete_reg(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str, 
-    file_loc: str, name: str, old_exp=[], log=True):
+    file_loc: str, name: str, old_exp=[], log=True, contexts=[], context_levels=[[]], regularize=False):
     '''
     Fits to logistic or probit regression and generates a latex string of the result.
     Parameters
@@ -316,21 +337,38 @@ def discrete_reg(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y:
     log (bool): if True, fit to logistic regression; otherwise probit regression.
     '''
     print(name)
-    formula = generate_formula(factors, levels, y, name, old_exp)
+    formula = generate_formula(factors, levels, y, name, old_exp, contexts, context_levels)
+
+    if name == 'W12_prepare':
+        formula = formula.replace(' + motivate_stop:passed_yes', '')
+        formula = formula.replace(' + motivate_research:passed_yes', '')
+        formula = formula.replace(' + metacognitive_yes:effort_yes', '')
+        formula = formula.replace(' + friend_yes:proficient_eng_yes', '')
+        formula = formula.replace(' + big_yes:passed_yes', '')
+        formula = formula.replace(' + question_yes:proficient_eng_yes', '')
+        formula = formula.replace(' + sentence_yes:competitive_yes', '')
+    
     if log:
-        lm_all = logit(formula, data=data).fit()
+        if regularize:
+            lm_all = glm(formula=formula, data=data, family=sm.families.Binomial()).fit_regularized(L1_wt=0.0)
+        else:
+            lm_all = logit(formula, data=data).fit(method='bfgs')
         suffix = '_logit.tex'
     else:
-        lm_all = probit(formula, data=data).fit()
+        lm_all = probit(formula, data=data).fit(method='bfgs')
         suffix = '_probit.tex'
-    print(lm_all.summary())
-    latex_to_pdf('\end{tabular}\n\\end{adjustbox}'.join(
-        lm_all.summary().as_latex().replace(r'\begin{tabular}{lcccccc}', 
-            '\\begin{adjustbox}{width=1\\textwidth}\n\\begin{tabular}{lcccccc}').rsplit(
-                r'\end{tabular}', 1)), name + suffix, file_loc, y)
+    if regularize:
+        print(lm_all.params)
+    else:
+        print(lm_all.summary())
+        latex_to_pdf('\end{tabular}\n\\end{adjustbox}'.join(
+            lm_all.summary().as_latex().replace(r'\begin{tabular}{lcccccc}', 
+                '\\begin{adjustbox}{width=1\\textwidth}\n\\begin{tabular}{lcccccc}').rsplit(
+                    r'\end{tabular}', 1)), name + suffix, file_loc, y)
 
 def analyze(data: pd.DataFrame, data_dict: dict, factors: np.ndarray, 
-    levels: np.ndarray, y: str, test: str, file_loc: str, log=True, old_exp=[]):
+    levels: np.ndarray, y: str, test: str, file_loc: str, log=True, old_exp=[], 
+        contexts=[], context_levels=[[]], regularize=False):
     '''
     Conducts a t-test/one-way ANOVA and fits to OLS if the dependent variable is continuous.
     Conducts a z-test/Chi-squared and fits to logistic (log=True) or probit (log=False) 
@@ -362,13 +400,13 @@ def analyze(data: pd.DataFrame, data_dict: dict, factors: np.ndarray,
         relevant_levels = levels[indices]
         if test == 'ttest':
             ols_anova(
-                prob, relevant_factors, relevant_levels, y, file_loc, name, old_exp)
+                prob, relevant_factors, relevant_levels, y, file_loc, name, old_exp, contexts, context_levels)
         else:
             discrete_reg(prob, relevant_factors, relevant_levels, 
-                y, file_loc, name, old_exp, log)
+                y, file_loc, name, old_exp, log, contexts, context_levels, regularize)
 
     # Pooled results
     if test == 'ttest':
-        ols_anova(data, factors, levels, y, file_loc, 'overall', old_exp)
+        ols_anova(data, factors, levels, y, file_loc, 'overall', old_exp, contexts, context_levels)
     else:
-        discrete_reg(data, factors, levels, y, file_loc, 'overall', old_exp, log)
+        discrete_reg(data, factors, levels, y, file_loc, 'overall', old_exp, log, contexts, context_levels, regularize)
