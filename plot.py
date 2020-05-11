@@ -6,22 +6,10 @@ import numpy as np
 from scipy import stats
 import preprocess
 
-def discrete_hist(data, min_val: int, max_val: int, step: int, title: str, density=False):
-    '''
-    Builds a histogram of the discrete data.
-    Parameters
-    ----------
-    data (array-like): data you want to plot on a histogram.
-    min_val (int): the minimum value in the data (inclusive).
-    max_val (int): the maximum value in the data (exclusive, add 1).
-    step (int): the incrementation
-    title (str): the title of this axes.
-    density (bool): True if you want a density plot. False if you want counts.
-    '''
-    plt.hist(data, bins=np.arange(min_val - step/2, max_val + step/2, step), alpha=0.5, density=density)
-    plt.title(title)
-    plt.xticks(range(min_val, max_val, step))
-    plt.show()
+####################################################################################################
+# The functions located in the upper half of this file are all helper functions and you should not #
+# call them directly. Scroll down to find the functions you can use as a blackbox.                 #
+####################################################################################################
 
 def build_plot(ax, data: pd.DataFrame, factor: str, factor_levels: np.ndarray, y: str,
     name: str, title: str, max_plot_val=1.0, boxplot=False, old_exp=[], min_plot_val=0.0):
@@ -149,6 +137,23 @@ def plot_interactions_helper(data: pd.DataFrame, factor1: str, factor1_levels: n
         fig.text(0.5, 0.9, subtitle, ha='center', fontsize = 16)
         plt.show()
 
+def dummy_plot(title: str):
+    '''
+    Generates dummy plots to separate other plots.
+    Parameters
+    ----------
+    title (str): the title of the dummpy plot.
+    '''
+    fig = plt.figure(figsize=(8, 1))
+    plt.axes([0, 0, 0.1, 0.1])
+    fig.suptitle(title, fontsize=20)
+    plt.show()
+
+####################################################################################################
+# The functions above this are all helper functions and you should not call them directly.         #
+# You can use the functions below as a blackbox.                                                   #
+####################################################################################################
+
 def plot_interactions(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, 
     y: str, ylabel: str, name: str, contexts=[], context_levels=[[]], 
         max_plot_val=1.0, boxplot=False, old_exp=[], subtitle='', min_plot_val=0.0):
@@ -256,16 +261,82 @@ def plot_main_drop(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, 
             fig.text(0.04, 0.5, ylabel, va='center', rotation='vertical', fontsize = 16)
             plt.show()
 
-def dummy_plot(title: str):
+def discrete_hist(data, min_val: int, max_val: int, step: int, title: str, density=False):
     '''
-    Generates dummy plots to separate other plots.
+    Builds a histogram of the discrete data.
     Parameters
     ----------
-    title (str): the title of the dummpy plot.
+    data (array-like): data you want to plot on a histogram.
+    min_val (int): the minimum value in the data (inclusive).
+    max_val (int): the maximum value in the data (exclusive, add 1).
+    step (int): the incrementation
+    title (str): the title of this axes.
+    density (bool): True if you want a density plot. False if you want counts.
     '''
-    fig = plt.figure(figsize=(8, 1))
-    plt.axes([0, 0, 0.1, 0.1])
-    fig.suptitle(title, fontsize=20)
+    plt.hist(data, bins=np.arange(min_val - step/2, max_val + step/2, step), alpha=0.5, density=density)
+    plt.title(title)
+    plt.xticks(range(min_val, max_val, step))
+    plt.show()
+
+def assignment_percent(data: pd.DataFrame, factor: str, factor_levels: list, partition: int, reward: str, 
+                    xlabel: str, sort_by: str, ascending: bool):
+    '''
+    Builds a plot of the assignments to different experimental versions over time.
+    Parameters
+    ----------
+    data (pandas.DataFrame): df containing data of the experiment.
+    factor (str): the name of the independent variable.
+    factor_levels (numpy.ndarray): the list of levels of factor.
+    partition (int): the number of partitions you want to divide data into.
+    reward (str): the name of the dependent variable.
+    xlabel (str): the name of the experiment.
+    sort_by (str): the name of column that you want to sort data by. 
+    ascending (bool): True if you want to sort in the ascending order. False for descending.
+    '''
+
+    data = data.sort_values(by=sort_by, ascending=ascending)    
+    size_list = []
+    for i in range(partition):
+        if i <= data.shape[0] % partition:
+            size_list.append(data.shape[0] // partition + 1)
+        else:
+            size_list.append(data.shape[0] // partition)
+            
+    cur_index = 0
+    percent = np.zeros((len(factor_levels), partition))
+    means = np.zeros((len(factor_levels), partition))
+    for i in range(len(size_list)):
+        part = data.iloc[cur_index:cur_index+size_list[i]]
+        base_part = part.copy()
+        base_level = 100
+        for j in range(1, len(factor_levels)):
+            normalized = part[factor + '_' + factor_levels[j]].sum() / size_list[i] * 100
+            percent[j, i] += normalized
+            means[j, i] += np.round(part[part[factor + '_' + factor_levels[j]] == 1][reward].mean(), 2)
+            base_part = base_part[base_part[factor + '_' + factor_levels[j]] == 0]
+            base_level -= normalized
+        percent[0, i] += base_level
+        means[0, i] += np.round(base_part[reward].mean(), 2)
+        cur_index += size_list[i]
+        
+    bar_width = 1
+    edgecolor = 'white'
+    fig, ax = plt.subplots(figsize=((partition / 4 + 1) * 2, partition / 4 + 1))
+    r = np.arange(partition)
+    for i in range(len(factor_levels)):
+        if i == 0:
+            ax.bar(r, percent[i], edgecolor=edgecolor, width=bar_width, label=factor_levels[i])
+            for j in range(partition):
+                ax.annotate(means[i, j], (r[j], percent[i, j] / 2), ha='center')
+        else:
+            ax.bar(r, percent[i], edgecolor=edgecolor, width=bar_width, label=factor_levels[i], 
+                    bottom=np.sum(percent[:i], axis=0))
+            for j in range(partition):
+                ax.annotate(means[i, j], (r[j], percent[i, j] / 2 + np.sum(percent[:i, j])), ha='center')
+            
+    ax.set_xlabel(xlabel)
+    ax.legend(loc='upper left', bbox_to_anchor=(1,1), ncol=1)
+    ax.set_title(factor)
     plt.show()
 
 def explore(data: pd.DataFrame, data_dict: dict, factors: np.ndarray, 
