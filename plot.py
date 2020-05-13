@@ -71,19 +71,19 @@ def build_plot(ax, data: pd.DataFrame, factor: str, factor_levels: np.ndarray, y
     # Add text in graphs (mean and sample size)
     for i in range(len(groups)):
         if boxplot:
-            ax.text(i+1, 0.2*max_plot_val, 'Median =', ha='center', va='bottom',
+            ax.text(i+1, 0.2*(max_plot_val - min_plot_val) + min_plot_val, 'Median =', ha='center', va='bottom',
                     fontweight='bold', fontsize = 16)
-            ax.text(i+1, 0.15*max_plot_val, str(np.round(mean_outcomes[
+            ax.text(i+1, 0.15*(max_plot_val - min_plot_val) + min_plot_val, str(np.round(mean_outcomes[
                 i].median(), 2)), ha='center', va='bottom', fontweight='bold', fontsize = 16)
-            ax.text(i+1, 0.05*max_plot_val, 'n = %s' %num_students[
+            ax.text(i+1, 0.05*(max_plot_val - min_plot_val) + min_plot_val, 'n = %s' %num_students[
                 i], ha='center', va='bottom', fontweight='bold', fontsize = 16)
         else:
-            ax.text(i, 0.2*max_plot_val, 'Mean =', ha='center', va='bottom', fontweight='bold', 
+            ax.text(i, 0.2*(max_plot_val - min_plot_val) + min_plot_val, 'Mean =', ha='center', va='bottom', fontweight='bold', 
                 fontsize = 14)
-            ax.text(i, 0.15*max_plot_val, str(np.round(
+            ax.text(i, 0.15*(max_plot_val - min_plot_val) + min_plot_val, str(np.round(
                 mean_outcomes[i],2)), ha='center', va='bottom', fontweight='bold', 
                 fontsize = 14)
-            ax.text(i, 0.05*max_plot_val, 'n = %s' %num_students[
+            ax.text(i, 0.05*(max_plot_val - min_plot_val) + min_plot_val, 'n = %s' %num_students[
                 i], ha='center', va='bottom', fontweight='bold', fontsize = 14)
 
     ax.set_title(title, fontsize = 16)
