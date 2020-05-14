@@ -367,7 +367,7 @@ def explore(data: pd.DataFrame, data_dict: dict, factors: np.ndarray, levels: np
 
     # Pooled result
     plot_main(data, factors, levels, y, ylabel, 'Overall', max_plot_val, boxplot, min_plot_val)
-    plot_interactions(data, factors, levels, y, ylabel, 'Overall', max_plot_val, boxplot, min_plot_val=min_plot_val)
+    plot_interactions(data, factors, levels, y, ylabel, 'Overall', contexts, context_levels, max_plot_val, boxplot, min_plot_val=min_plot_val)
 
 def explore_by_factor(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, ys: list, ylabels: list, name: str, 
     can_be_dropped: list, max_plot_vals: list, min_plot_vals: list, boxplots: list, contexts=None, context_levels=None):
