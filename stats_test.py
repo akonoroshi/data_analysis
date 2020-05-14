@@ -66,7 +66,7 @@ def non_normal(level_data: list):
         return stats.kruskal(*level_data)
 
 def ttest(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str, 
-    name: str, old_exp=[], alpha=0.05) -> dict:
+    name: str, alpha=0.05) -> dict:
     '''
     For each factor, conducts a t-test/one-way ANOVA to see if there are any 
     differences in the means of two or more groups.
@@ -78,7 +78,6 @@ def ttest(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str,
     factor and each element in a row represents a level.
     y (str): the name of the dependent variable.
     name (str): the version of the experiment.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     alpha (float): confidence level to reject the null hypotheses that the 
     dependent variable is normally distributed within each group and that the 
     variances are equal.
@@ -96,8 +95,6 @@ def ttest(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str,
             base_data = base_data[base_data[factor + '_' + factor_levels[i]] == 0]
             level_data.append(data[data[factor + '_' + factor_levels[i]] == 1][y])
         level_data.append(base_data[y])
-        if name in old_exp:
-            level_data = [level_data[0], level_data[-1]]
             
         try:
             # test normality
@@ -122,7 +119,7 @@ def ttest(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str,
     return result_dict
 
 def ztest(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str, 
-    name: str, old_exp=[], alpha=0.05) -> dict:
+    name: str, alpha=0.05) -> dict:
     '''
     For each factor in factors, conducts a t-test/one-way ANOVA to see if there are any 
     differences in the means of two or more groups.
@@ -134,7 +131,6 @@ def ztest(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str,
     factor and each element in a row represents a level.
     y (str): the name of the dependent variable.
     name (str): the version of the experiment.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     alpha (float): ignored.
 
     Return
@@ -159,9 +155,6 @@ def ztest(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str,
             nobs.append(len(data[data[factor + '_' + factor_levels[i]] == 1]))
         count.append(len(base_filtered))
         nobs.append(len(base_data))
-        if name in old_exp:
-            count = [count[0], count[-1]]
-            nobs = [nobs[0], nobs[-1]]
         
         if len(count) > 2:
             result = proportions_chisquare(np.array(count), np.array(nobs))
@@ -198,7 +191,7 @@ def latex_to_pdf(latex, file_name: str, file_loc: str, y: str):
     subprocess.call(['pdflatex', file_name], cwd=loc)
 
 def test_to_tex(data: pd.DataFrame, data_dict: dict, factors: np.ndarray, 
-    levels: np.ndarray, y: str, file_loc: str, test: str, old_exp=[]):
+    levels: np.ndarray, y: str, file_loc: str, test: str):
     '''
     Does statistical tests for each experiment and pooled data and converts the results 
     to a latex string.
@@ -215,7 +208,6 @@ def test_to_tex(data: pd.DataFrame, data_dict: dict, factors: np.ndarray,
     y (str): the name of the dependent variable.
     file_loc (str): the path to the place where you want to save .tex files
     test (str): the name of test. Either ttest (if continuous) or ztest (if binary)
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     '''
 
     tests_dict = {'ttest': ttest, 'ztest': ztest}
@@ -229,8 +221,8 @@ def test_to_tex(data: pd.DataFrame, data_dict: dict, factors: np.ndarray,
         indices = preprocess.select_factors(factors, name)
         relevant_factors = factors[indices]
         relevant_levels = levels[indices]
-        df = df.append(test_func(prob, relevant_factors, relevant_levels, y, name, old_exp), ignore_index=True)
-    df = df.append(test_func(data, factors, levels, y, 'Overall', old_exp), ignore_index=True)
+        df = df.append(test_func(prob, relevant_factors, relevant_levels, y, name), ignore_index=True)
+    df = df.append(test_func(data, factors, levels, y, 'Overall'), ignore_index=True)
 
     df = df.set_index('Experiment')
     print(df)
@@ -238,7 +230,7 @@ def test_to_tex(data: pd.DataFrame, data_dict: dict, factors: np.ndarray,
     latex_to_pdf(df.to_latex(
         column_format='c'*(df.shape[1]+1), escape=False), test + '.tex', file_loc, y)
 
-def generate_formula(factors: np.ndarray, levels: np.ndarray, y:str, name: str, old_exp=[], contexts=[], context_levels=[[]]) -> str:
+def generate_formula(factors: np.ndarray, levels: np.ndarray, y:str, name: str, contexts=[], context_levels=[[]]) -> str:
     '''
     Returns the formula of regression from a list of independent variables and 
     a dependent variable.
@@ -249,7 +241,10 @@ def generate_formula(factors: np.ndarray, levels: np.ndarray, y:str, name: str, 
     and each element in a row represents a level.
     y (str): the name of the dependent variable.
     name (str): the name of the experiment.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
+    contexts (numpy.ndarray): the list of contextual variables. Set to be None if you 
+    want to plot the interactions between action variables.
+    context_levels (numpy.ndarray): the matrix of context x level. Each row represents a context 
+    and each element in a row represents a level.
 
     Return
     -------
@@ -259,8 +254,6 @@ def generate_formula(factors: np.ndarray, levels: np.ndarray, y:str, name: str, 
     for factor, factor_levels in zip(factors, levels): # Sub-group effects
         for i in range(1, len(factor_levels)):
             formula += ' + ' + factor + '_' + factor_levels[i]
-            if name in old_exp:
-                break
     for context, context_level in zip(contexts, context_levels):
         for i in range(1, len(context_level)):
             formula += ' + ' + context + '_' + context_level[i] 
@@ -272,27 +265,17 @@ def generate_formula(factors: np.ndarray, levels: np.ndarray, y:str, name: str, 
                     for j in range(1, len(context_level)):
                         formula += ' + ' + factor + '_' + factor_levels[
                             i] + ':' + context + '_' + context_level[j]
-                if name in old_exp:
-                    break
     else:
         for c in itertools.combinations(range(len(factors)), 2): # Interaction effects
             for i in range(1, len(levels[c[0]])):
                 for j in range(1, len(levels[c[1]])):
                     formula += ' + ' + factors[c[0]] + '_' + levels[c[0]][
                         i] + ':' + factors[c[1]] + '_' + levels[c[1]][j]
-                    if name in old_exp:
-                        break
-                if name in old_exp:
-                    break
-
-    # instructor was removed and how was added in week 12 perform
-    formula = formula.replace(' + instructor_yes:how_yes', '')
-    formula = formula.replace(' + how_yes:instructor_yes', '')
 
     return formula
 
 def ols_anova(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str, 
-    file_loc: str, name: str, old_exp=[], contexts=[], context_levels=[[]]):
+    file_loc: str, name: str, contexts=[], context_levels=[[]]):
     '''
     Fits to OLS, conducts ANOVA, and generates latex strings of the results.
     Parameters
@@ -304,11 +287,14 @@ def ols_anova(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: st
     y (str): the name of the dependent variable.
     file_loc (str): the path to the place where you want to save .tex files.
     name (str): the name of the experiment.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     log (bool): if True, fit to logistic regression; otherwise probit regression.
+    contexts (numpy.ndarray): the list of contextual variables. Set to be None if you 
+    want to plot the interactions between action variables.
+    context_levels (numpy.ndarray): the matrix of context x level. Each row represents a context 
+    and each element in a row represents a level.
     '''
     print(name)
-    formula = generate_formula(factors, levels, y, name, old_exp, contexts, context_levels)
+    formula = generate_formula(factors, levels, y, name, contexts, context_levels)
     lm_all = ols(formula, data=data).fit()
     print(lm_all.summary())
     table = sm.stats.anova_lm(lm_all, typ=2)
@@ -321,7 +307,7 @@ def ols_anova(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: st
                 r'\begin{tabular}{lclc}', 1)), name + '_ols.tex', file_loc, y)
 
 def discrete_reg(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str, 
-    file_loc: str, name: str, old_exp=[], log=True, contexts=[], context_levels=[[]], regularize=False):
+    file_loc: str, name: str, log=True, contexts=[], context_levels=[[]], regularize=False):
     '''
     Fits to logistic or probit regression and generates a latex string of the result.
     Parameters
@@ -333,20 +319,14 @@ def discrete_reg(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y:
     y (str): the name of the dependent variable.
     file_loc (str): the path to the place where you want to save .tex files.
     name (str): the name of the experiment.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     log (bool): if True, fit to logistic regression; otherwise probit regression.
+    contexts (numpy.ndarray): the list of contextual variables. Set to be None if you 
+    want to plot the interactions between action variables.
+    context_levels (numpy.ndarray): the matrix of context x level. Each row represents a context 
+    and each element in a row represents a level.
     '''
     print(name)
-    formula = generate_formula(factors, levels, y, name, old_exp, contexts, context_levels)
-
-    if name == 'W12_prepare':
-        formula = formula.replace(' + motivate_stop:passed_yes', '')
-        formula = formula.replace(' + motivate_research:passed_yes', '')
-        formula = formula.replace(' + metacognitive_yes:effort_yes', '')
-        formula = formula.replace(' + friend_yes:proficient_eng_yes', '')
-        formula = formula.replace(' + big_yes:passed_yes', '')
-        formula = formula.replace(' + question_yes:proficient_eng_yes', '')
-        formula = formula.replace(' + sentence_yes:competitive_yes', '')
+    formula = generate_formula(factors, levels, y, name, contexts, context_levels)
     
     if log:
         if regularize:
@@ -366,9 +346,8 @@ def discrete_reg(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y:
                 '\\begin{adjustbox}{width=1\\textwidth}\n\\begin{tabular}{lcccccc}').rsplit(
                     r'\end{tabular}', 1)), name + suffix, file_loc, y)
 
-def analyze(data: pd.DataFrame, data_dict: dict, factors: np.ndarray, 
-    levels: np.ndarray, y: str, test: str, file_loc: str, log=True, old_exp=[], 
-        contexts=[], context_levels=[[]], regularize=False):
+def analyze(data: pd.DataFrame, data_dict: dict, factors: np.ndarray, levels: np.ndarray, y: str, test: str, file_loc: str, 
+    log=True, contexts=[], context_levels=[[]], regularize=False):
     '''
     Conducts a t-test/one-way ANOVA and fits to OLS if the dependent variable is continuous.
     Conducts a z-test/Chi-squared and fits to logistic (log=True) or probit (log=False) 
@@ -388,10 +367,13 @@ def analyze(data: pd.DataFrame, data_dict: dict, factors: np.ndarray,
     file_loc (str): the path to the place where you want to save .tex files
     log (bool): if True, fit to logistic regression; otherwise probit regression.
     Ignored if test='ttest'.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
+    contexts (numpy.ndarray): the list of contextual variables. Set to be None if you 
+    want to plot the interactions between action variables.
+    context_levels (numpy.ndarray): the matrix of context x level. Each row represents a context 
+    and each element in a row represents a level.
     '''
 
-    test_to_tex(data, data_dict, factors, levels, y, file_loc, test, old_exp)
+    test_to_tex(data, data_dict, factors, levels, y, file_loc, test)
 
     # For each experiment
     for name, prob in data_dict.items():
@@ -399,14 +381,12 @@ def analyze(data: pd.DataFrame, data_dict: dict, factors: np.ndarray,
         relevant_factors = factors[indices]
         relevant_levels = levels[indices]
         if test == 'ttest':
-            ols_anova(
-                prob, relevant_factors, relevant_levels, y, file_loc, name, old_exp, contexts, context_levels)
+            ols_anova(prob, relevant_factors, relevant_levels, y, file_loc, name, contexts, context_levels)
         else:
-            discrete_reg(prob, relevant_factors, relevant_levels, 
-                y, file_loc, name, old_exp, log, contexts, context_levels, regularize)
+            discrete_reg(prob, relevant_factors, relevant_levels, y, file_loc, name, log, contexts, context_levels, regularize)
 
     # Pooled results
     if test == 'ttest':
-        ols_anova(data, factors, levels, y, file_loc, 'overall', old_exp, contexts, context_levels)
+        ols_anova(data, factors, levels, y, file_loc, 'overall', contexts, context_levels)
     else:
-        discrete_reg(data, factors, levels, y, file_loc, 'overall', old_exp, log, contexts, context_levels, regularize)
+        discrete_reg(data, factors, levels, y, file_loc, 'overall', log, contexts, context_levels, regularize)

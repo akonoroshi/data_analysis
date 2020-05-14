@@ -12,7 +12,7 @@ import preprocess
 ####################################################################################################
 
 def build_plot(ax, data: pd.DataFrame, factor: str, factor_levels: np.ndarray, y: str,
-    name: str, title: str, max_plot_val=1.0, boxplot=False, old_exp=[], min_plot_val=0.0):
+    name: str, title: str, max_plot_val=1.0, boxplot=False, min_plot_val=0.0):
     '''
     Builds a plot of the effect of the factor on y
     Parameters
@@ -25,8 +25,8 @@ def build_plot(ax, data: pd.DataFrame, factor: str, factor_levels: np.ndarray, y
     name (str): the version of the experiment.
     title (str): the title of this axes.
     max_plot_val (float): the maximum value of the plot. 
+    min_plot_val (float): the minimum value of the plot. 
     boxplot (bool): True if you want to use boxplots. False if you want bar graphs.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     '''
     # Create Arrays for the plot
     mean_outcomes = []
@@ -50,13 +50,7 @@ def build_plot(ax, data: pd.DataFrame, factor: str, factor_levels: np.ndarray, y
         mean_outcomes.insert(0, base_data[y])
     else:
         mean_outcomes.insert(0, np.mean(base_data[y]))
-        se_outcomes.insert(0, stats.sem(base_data[y]))                
-    if name in old_exp: # factors with two levels
-        groups = ['no', 'yes']
-        mean_outcomes = mean_outcomes[:2]
-        num_students = num_students[:2]
-        if not boxplot:
-            se_outcomes = se_outcomes[:2]
+        se_outcomes.insert(0, stats.sem(base_data[y]))
             
     x_pos = np.arange(len(groups))
 
@@ -92,7 +86,7 @@ def build_plot(ax, data: pd.DataFrame, factor: str, factor_levels: np.ndarray, y
 
 def plot_interactions_helper(data: pd.DataFrame, factor1: str, factor1_levels: np.ndarray, 
     factor2: str, factor2_levels: np.ndarray, y: str, ylabel: str, name: str, 
-        max_plot_val=1.0, boxplot=False, old_exp=[], subtitle='', min_plot_val=0.0):
+        max_plot_val=1.0, boxplot=False, subtitle='', min_plot_val=0.0):
     '''
     Plots interaction effects between factor1 and factor2 on y (dependent variable).
     Parameters
@@ -107,8 +101,8 @@ def plot_interactions_helper(data: pd.DataFrame, factor1: str, factor1_levels: n
     ylabel (str): the description of the dependent variable that goes to a y-axis of a figure.
     name (str): the version of the experiment.
     max_plot_val (float): the maximum value of the plot. 
+    min_plot_val (float): the minimum value of the plot. 
     boxplot (bool): True if you want to use boxplots. False if you want bar graphs.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     '''
 
     fig, ax = plt.subplots(1, len(factor2_levels), figsize=(4*len(factor2_levels), 6))
@@ -120,13 +114,13 @@ def plot_interactions_helper(data: pd.DataFrame, factor1: str, factor1_levels: n
         filtered = data[data[factor2 + '_' + factor2_levels[i]] == 1]
         try:
             build_plot(ax[i], filtered, factor1, factor1_levels, y, name, 
-                factor2_levels[i], max_plot_val, boxplot, old_exp, min_plot_val)
+                factor2_levels[i], max_plot_val, boxplot, min_plot_val)
         except (ValueError, KeyError) as e:
             print('Not enough data for ' + factor1 + ' and ' + factor2)
             continue
     try:
         build_plot(ax[0], base_data, factor1, factor1_levels, y, name, 
-            factor2_levels[0], max_plot_val, boxplot, old_exp, min_plot_val)
+            factor2_levels[0], max_plot_val, boxplot, min_plot_val)
     except (ValueError, KeyError) as e:
         print('Not enough data for ' + factor1 + ' and ' + factor2)
     finally:   
@@ -156,7 +150,7 @@ def dummy_plot(title: str):
 
 def plot_interactions(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, 
     y: str, ylabel: str, name: str, contexts=[], context_levels=[[]], 
-        max_plot_val=1.0, boxplot=False, old_exp=[], subtitle='', min_plot_val=0.0):
+        max_plot_val=1.0, boxplot=False, subtitle='', min_plot_val=0.0):
     '''
     For each valid combination of independent (dummy) variables, plots interaction effects.
     Parameters
@@ -173,25 +167,25 @@ def plot_interactions(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarra
     context_levels (numpy.ndarray): the matrix of context x level. Each row represents a context 
     and each element in a row represents a level.
     max_plot_val (float): the maximum value of the plot. 
+    min_plot_val (float): the minimum value of the plot. 
     boxplot (bool): True if you want to use boxplots. False if you want bar graphs.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     '''
 
     if len(contexts) != 0:
         for factor, factor_levels in zip(factors, levels):
             for context, context_level in zip(contexts, context_levels):
                 plot_interactions_helper(data, factor, factor_levels, context, context_level, 
-                    y, ylabel, name, max_plot_val, boxplot, old_exp, subtitle, min_plot_val)
+                    y, ylabel, name, max_plot_val, boxplot, subtitle, min_plot_val)
 
     else:
         for c in itertools.combinations(range(len(factors)), 2):
             plot_interactions_helper(data, factors[c[0]], levels[c[0]], factors[c[1]], levels[c[1]], 
-                y, ylabel, name, max_plot_val, boxplot, old_exp, subtitle, min_plot_val)
+                y, ylabel, name, max_plot_val, boxplot, subtitle, min_plot_val)
         
 def plot_main(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str, 
-    ylabel: str, name: str, max_plot_val=1.0, boxplot=False, old_exp=[], min_plot_val=0.0):
+    ylabel: str, name: str, max_plot_val=1.0, boxplot=False, min_plot_val=0.0):
     '''
-    For each valid combination of independent (dummy) variables, plots interaction effects.
+    Plots main effects for each factor.
     Parameters
     ----------
     data (pandas.DataFrame): df containing data of the experiment.
@@ -202,15 +196,15 @@ def plot_main(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: st
     ylabel (str): the description of the dependent variable that goes to a y-axis of a figure.
     name (str): the version of the experiment.
     max_plot_val (float): the maximum value of the plot. 
+    min_plot_val (float): the minimum value of the plot. 
     boxplot (bool): True if you want to use boxplots. False if you want bar graphs.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     '''
     
     for factor, factor_levels in zip(factors, levels):
         fig, ax = plt.subplots()
         try:
             build_plot(ax, data, factor, factor_levels, y, name, name.replace(
-                '_', ' ').title(), max_plot_val, boxplot, old_exp, min_plot_val)
+                '_', ' ').title(), max_plot_val, boxplot, min_plot_val)
         except ValueError as e:
             print('Not enough data for ' + factor)
             continue
@@ -221,7 +215,7 @@ def plot_main(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: st
         plt.show()
 
 def plot_main_drop(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, y: str, 
-    ylabel: str, name: str, can_be_dropped: list, max_plot_val=1.0, boxplot=False, old_exp=[], min_plot_val=0.0):
+    ylabel: str, name: str, can_be_dropped: list, max_plot_val=1.0, boxplot=False, min_plot_val=0.0):
     '''
     Plots main effects for each factor while dropping some of the data according to criteria
     specified by can_be_dropped.
@@ -238,21 +232,20 @@ def plot_main_drop(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, 
     to be 1 if you want to include the row. Set this to be an empty list if you don't have
     any other critaria to clean data.
     max_plot_val (float): the maximum value of the plot. 
+    min_plot_val (float): the minimum value of the plot. 
     boxplots (list): the list of booleans. Must be the same length as ys. True if you 
     want to use boxplots. False if you want bar graphs.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     '''
 
     for factor, factor_levels in zip(factors, levels):
         fig, ax = plt.subplots(1, len(can_be_dropped) + 1, figsize=(20,6))
         ax = ax.ravel()
         try:
-            build_plot(ax[0], data, factor, factor_levels, y, name, 'Nothing dropped', 
-                max_plot_val, boxplot, old_exp, min_plot_val)
+            build_plot(ax[0], data, factor, factor_levels, y, name, 'Nothing dropped', max_plot_val, boxplot, min_plot_val)
             for i in range(len(can_be_dropped)):
                 temp = data[data[can_be_dropped[i]] == 1]
                 build_plot(ax[i+1], temp, factor, factor_levels, y, name, 
-                    'Dropped:' + can_be_dropped[i], max_plot_val, boxplot, old_exp, min_plot_val)
+                    'Dropped:' + can_be_dropped[i], max_plot_val, boxplot, min_plot_val)
         except ValueError as e:
             print('Not enough data for ' + factor)
         finally:
@@ -339,9 +332,8 @@ def assignment_percent(data: pd.DataFrame, factor: str, factor_levels: list, par
     ax.set_title(factor)
     plt.show()
 
-def explore(data: pd.DataFrame, data_dict: dict, factors: np.ndarray, 
-    levels: np.ndarray, y: str, ylabel: str, max_plot_val=1.0, 
-        boxplot=False, old_exp=[], contexts=None, context_levels=None, min_plot_val=0.0):
+def explore(data: pd.DataFrame, data_dict: dict, factors: np.ndarray, levels: np.ndarray, y: str, ylabel: str, 
+    max_plot_val=1.0, boxplot=False, contexts=None, context_levels=None, min_plot_val=0.0):
     '''
     Plots main effects and interaction effects for each experiment and the pooled result.
     Parameters
@@ -354,9 +346,10 @@ def explore(data: pd.DataFrame, data_dict: dict, factors: np.ndarray,
     levels (numpy.ndarray): the matrix of factor x level. Each raw represents a factor 
     and each element in a raw represents a level.
     y (str): the name of the dependent variable.
-    ylabel (str): the description of y that appears in graphs
+    ylabel (str): the description of y that appears in graphs.
+    max_plot_val (float): the maximum value of the plot. 
+    min_plot_val (float): the minimum value of the plot. 
     boxplot (bool): True if you want to use boxplots. False if you want bar graphs.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     contexts (numpy.ndarray): the list of contextual variables. Set to be None if you 
     want to plot the interactions between action variables.
     context_levels (numpy.ndarray): the matrix of context x level. Each row represents a context 
@@ -368,19 +361,16 @@ def explore(data: pd.DataFrame, data_dict: dict, factors: np.ndarray,
         relevant_factors = factors[indices]
         relevant_levels = levels[indices]
         plot_main(prob, relevant_factors, relevant_levels, y, ylabel, 
-            name, max_plot_val, boxplot, old_exp, min_plot_val)
+            name, max_plot_val, boxplot, min_plot_val)
         plot_interactions(prob, relevant_factors, relevant_levels, y, ylabel, 
-            name, contexts, context_levels, max_plot_val, boxplot, old_exp, min_plot_val=min_plot_val)
+            name, contexts, context_levels, max_plot_val, boxplot, min_plot_val=min_plot_val)
 
     # Pooled result
-    plot_main(data, factors, levels, y, ylabel, 'Overall', 
-        max_plot_val, boxplot, old_exp, min_plot_val)
-    plot_interactions(data, factors, levels, y, ylabel, 'Overall', 
-        max_plot_val, boxplot, old_exp, min_plot_val=min_plot_val)
+    plot_main(data, factors, levels, y, ylabel, 'Overall', max_plot_val, boxplot, min_plot_val)
+    plot_interactions(data, factors, levels, y, ylabel, 'Overall', max_plot_val, boxplot, min_plot_val=min_plot_val)
 
-def explore_by_factor(data: pd.DataFrame, factors: np.ndarray, 
-    levels: np.ndarray, ys: list, ylabels: list, name: str, can_be_dropped: list, max_plot_vals: list, 
-        boxplots: list, old_exp=[], contexts=None, context_levels=None, min_plot_val=0.0):
+def explore_by_factor(data: pd.DataFrame, factors: np.ndarray, levels: np.ndarray, ys: list, ylabels: list, name: str, 
+    can_be_dropped: list, max_plot_vals: list, min_plot_vals: list, boxplots: list, contexts=None, context_levels=None):
     '''
     Plots main effects and interaction effects for each experiment and the pooled result 
     by factors.
@@ -398,9 +388,10 @@ def explore_by_factor(data: pd.DataFrame, factors: np.ndarray,
     any other critaria to clean data.
     max_plot_vals (list): the list of maximum values in each plot. Must be the same 
     length as ys.
+    min_plot_vals (list): the list of minimum values in each plot. Must be the same 
+    length as ys.
     boxplots (list): the list of booleans. Must be the same length as ys. True if you 
     want to use boxplots. False if you want bar graphs.
-    old_exp (list): the list of experiments that do not have any non-binary factors.
     contexts (numpy.ndarray): the list of contextual variables. Set to be None if you 
     want to plot the interactions between action variables.
     context_levels (numpy.ndarray): the matrix of context x level. Each row represents a context 
@@ -414,25 +405,23 @@ def explore_by_factor(data: pd.DataFrame, factors: np.ndarray,
     # Main effects
     print('Main effects')
     for factor, factor_levels in zip(relevant_factors, relevant_levels):
-        for y, ylabel, max_plot_val, boxplot in zip(ys, ylabels, max_plot_vals, boxplots):
+        for y, ylabel, max_plot_val, min_plot_val, boxplot in zip(ys, ylabels, max_plot_vals, min_plot_vals, boxplots):
             if len(can_be_dropped) == 0:
                 plot_main(data, np.array([factor]), np.array([factor_levels]), y, 
-                    ylabel, name, max_plot_val, boxplot, old_exp, min_plot_val)
+                    ylabel, name, max_plot_val, boxplot, min_plot_val)
             else:
                 plot_main_drop(data, np.array([factor]), np.array([factor_levels]), y, 
-                    ylabel, name, can_be_dropped, max_plot_val, boxplot, old_exp, min_plot_val)
+                    ylabel, name, can_be_dropped, max_plot_val, boxplot, min_plot_val)
 
     # Interactions
     print('Interaction effects')
     for factor, factor_levels in zip(relevant_factors, relevant_levels):
         print('Action: ' + factor)
-        for y, ylabel, max_plot_val, boxplot in zip(ys, ylabels, max_plot_vals, boxplots):
+        for y, ylabel, max_plot_val, min_plot_val, boxplot in zip(ys, ylabels, max_plot_vals, min_plot_vals, boxplots):
             print('Effects on ' + ylabel)
             plot_interactions(data, np.array([factor]), np.array([factor_levels]), 
-                y, ylabel, name, contexts, context_levels, max_plot_val, boxplot, 
-                    old_exp, '', min_plot_val)
+                y, ylabel, name, contexts, context_levels, max_plot_val, boxplot, '', min_plot_val)
             for drop in can_be_dropped:
                 temp = data[data[drop] == 1]
-                plot_interactions(temp, np.array([factor]), np.array([
-                    factor_levels]), y, ylabel, name, contexts, context_levels, 
-                        max_plot_val, boxplot, old_exp, 'Dropped: ' + drop, min_plot_val)
+                plot_interactions(temp, np.array([factor]), np.array([factor_levels]), y, ylabel, name, contexts, 
+                    context_levels, max_plot_val, boxplot, 'Dropped: ' + drop, min_plot_val)
