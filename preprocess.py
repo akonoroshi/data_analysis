@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import urllib.request
+import json
 
 def select_factors(factors: np.ndarray, name: str) -> list:
     '''
@@ -68,7 +70,6 @@ def filter_dict(data_dict: dict, y: str, threshold, smaller=True) -> dict:
             filtered_dict[name] = data[data[y] > threshold]
     return filtered_dict
 
-
 def remove_personal_identifiers(data: pd.DataFrame) -> pd.DataFrame:
     '''
     Removes personal information from data. Hard-coded.
@@ -87,3 +88,28 @@ def remove_personal_identifiers(data: pd.DataFrame) -> pd.DataFrame:
     for info in personal_info:
         data[info] = ''
     return data
+
+def get_velues_from_mooclets(url: str, token: str) -> pd.DataFrame:
+    '''
+    Get values from mooclets.
+    Parameters
+    ----------
+    url (str): string of url of the mooclets engine. The format parameter must be 
+    equal to json.
+    token (str): token for authorization
+
+    Return
+    -------
+    values (pandas.DataFrame): df containing data related to each value
+    '''
+    header = {'Authorization': 'Token ' + token}
+    values = []
+    cur_url = url
+    while cur_url != None:
+        req = urllib.request.Request(cur_url, headers=header)
+        response = urllib.request.urlopen(req)
+        data_json = json.loads(response.read().decode())
+        cur_url = data_json['next']
+        values += data_json['results']
+
+    return pd.DataFrame(values)
